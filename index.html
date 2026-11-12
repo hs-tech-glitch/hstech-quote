@@ -1,4 +1,4 @@
-<!-- 견적기 화면 V6.21 -->
+<!-- 견적기 화면 V6.22 -->
 <!DOCTYPE html>
 
 <html lang="ko">
@@ -548,7 +548,7 @@
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:7px;">
         <div class="subtitle">견적서 작성 시스템</div>
         <div style="text-align:right;">
-          <div id="version-badge" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em;">Built by DUCK ✦ V6.21</div>
+          <div id="version-badge" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em;">Built by DUCK ✦ V6.22</div>
           <div id="pb-label" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em; margin-top:2px; cursor:help;">Price Book 2026-03-26</div>
         </div>
       </div>
@@ -11184,6 +11184,7 @@ window.addEventListener("load", (function() {
   return;
  }
  if (!HS_IS_NEW) return;
+ if (true) return;
  var done = null;
  try {
   done = localStorage.getItem("hs_migrated_v1");
