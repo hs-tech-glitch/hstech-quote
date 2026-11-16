@@ -1,4 +1,4 @@
-<!-- 견적기 화면 V6.25 -->
+<!-- 견적기 화면 V6.26 -->
 <!DOCTYPE html>
 
 <html lang="ko">
@@ -423,6 +423,8 @@
   .dropdown.open { display: block; }
   .dropdown-item { padding: 8px 12px; cursor: pointer; font-size: 12px; color: #e2e8f0; border-bottom: 1px solid rgba(255,255,255,0.06); }
   .dropdown-item:hover { background: rgba(20,184,166,0.15); color: #14b8a6; }
+  #customer-dropdown .dropdown-item { color: #1a3a5c; font-size: 14px; font-weight: 600; padding: 11px 14px; border-bottom: 1px solid #f1f5f9; }
+  #customer-dropdown .dropdown-item:hover, #customer-dropdown .dropdown-item:active { background: #ecfdf5; color: #0f766e; }
 
   /* 고객사 카드 */
   .customer-card { display: none; margin-top: 8px; padding: 8px 10px; background: rgba(20,184,166,0.1); border: 1px solid rgba(20,184,166,0.25); border-radius: var(--radius); font-size: 11px; color: #e2e8f0; }
@@ -548,7 +550,7 @@
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:7px;">
         <div class="subtitle">견적서 작성 시스템</div>
         <div style="text-align:right;">
-          <div id="version-badge" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em;">Built by DUCK ✦ V6.25</div>
+          <div id="version-badge" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em;">Built by DUCK ✦ V6.26</div>
           <div id="pb-label" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em; margin-top:2px; cursor:help;">Price Book 2026-03-26</div>
         </div>
       </div>
@@ -687,7 +689,7 @@
       <div style="flex:1;max-width:400px;display:flex;align-items:center;gap:10px;position:relative;">
         <div style="flex:1;position:relative;">
           <div style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;">🔍</div>
-          <input type="text" id="customer-search" autocomplete="off" placeholder="고객사명 검색..." oninput="searchCustomer()" onkeydown="customerSearchKeydown(event)" style="width:100%;padding:10px 14px 10px 42px;font-size:15px;font-weight:600;border:2px solid #e2e8f0;border-radius:10px;background:#f8fafc;color:#1a3a5c;outline:none;box-sizing:border-box;" onfocus='this.style.borderColor = "#14b8a6";
+          <input type="text" id="customer-search" autocomplete="off" placeholder="고객사명 검색..." oninput="searchCustomer()" onkeydown="customerSearchKeydown(event)" onkeyup="customerSearchKeyup(event)" enterkeyhint="search" style="width:100%;padding:10px 14px 10px 42px;font-size:15px;font-weight:600;border:2px solid #e2e8f0;border-radius:10px;background:#f8fafc;color:#1a3a5c;outline:none;box-sizing:border-box;" onfocus='this.style.borderColor = "#14b8a6";
 
 this.style.background = "#fff";
 
@@ -10274,6 +10276,7 @@ function searchCustomer() {
     if (!dd) return;
     if (!q) {
         dd.classList.remove("open");
+        dd.style.display = "none";
         return;
     }
     var recency = getCustomerRecency();
@@ -10287,6 +10290,7 @@ function searchCustomer() {
     }));
     if (!matches.length) {
         dd.classList.remove("open");
+        dd.style.display = "none";
         return;
     }
     firstCustomerMatch = matches[0][0];
@@ -10298,9 +10302,10 @@ function searchCustomer() {
         var dots = myBadges.length ? '<span style="margin-left:6px;">' + myBadges.map((function(b) {
             return '<span title="' + b.name + '" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + (b.color || "#64748b") + ';margin-right:3px;"></span>';
         })).join("") + "</span>" : "";
-        return '<div class="dropdown-item" onclick="selectCustomer(\'' + key + "')\">" + name + dots + "</div>";
+        return '<div class="dropdown-item" onmousedown="event.preventDefault()" onclick="selectCustomer(\'' + key + "')\">" + name + dots + "</div>";
     })).join("");
     dd.classList.add("open");
+    dd.style.display = "block";
 }
 
 function customerSearchKeydown(e) {
@@ -10310,6 +10315,12 @@ function customerSearchKeydown(e) {
             selectCustomer(firstCustomerMatch);
         }
     }
+}
+
+function customerSearchKeyup(e) {
+    if (e.key !== "Enter" && e.keyCode !== 13) return;
+    var s = getEl("customer-search");
+    if (firstCustomerMatch && (!s || s.dataset.key !== firstCustomerMatch)) selectCustomer(firstCustomerMatch);
 }
 
 function selectCustomer(key) {
@@ -10322,6 +10333,8 @@ function selectCustomer(key) {
         s.dataset.key = key;
     }
     getEl("customer-dropdown") && getEl("customer-dropdown").classList.remove("open");
+    closeCustomerDropdown();
+    if (s && s.blur && window.innerWidth <= 768) s.blur();
     if (getEl("recipient")) getEl("recipient").value = c.name || "";
     if (getEl("recipient-contact")) getEl("recipient-contact").value = c.contact || "";
     if (getEl("recipient-tel")) getEl("recipient-tel").value = c.tel || "";
@@ -16999,7 +17012,10 @@ window.onload = function() {
     }));
     setTimeout(hsLoadFileStamps, 4e3);
     document.addEventListener("click", (function(e) {
-        if (!e.target.closest(".search-wrap")) getEl("customer-dropdown")?.classList.remove("open");
+        if (!e.target.closest("#customer-search,#customer-dropdown")) {
+            getEl("customer-dropdown")?.classList.remove("open");
+            closeCustomerDropdown();
+        }
     }));
 }</script>
 
