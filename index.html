@@ -1,4 +1,4 @@
-<!-- 견적기 화면 V6.27 -->
+<!-- 견적기 화면 V6.28 -->
 <!DOCTYPE html>
 
 <html lang="ko">
@@ -338,6 +338,23 @@
   /* 컬럼 너비 */
   .col-code { width: 120px; }
   .col-subcode { width: 140px; }
+  /* V6.28 품목 표: 품명·모델코드 칸이 한 글자만 보이게 쪼그라들던 것(태블릿·좁은 창) — 최소 폭 보장 */
+  #items-body input[id^="name-"] { min-width: 110px !important; }
+  #items-body input[id^="code-"] { min-width: 135px !important; }
+  /* 터치 기기(휴대폰·태블릿): 칸·버튼 크게 */
+  @media (pointer: coarse) {
+    #items-body input[id^="name-"] { min-width: 150px !important; font-size: 16px !important; padding: 9px 9px !important; }
+    #items-body input[id^="code-"] { min-width: 190px !important; font-size: 16px !important; padding: 9px 9px !important; }
+    #items-body input[id^="unit-"], #items-body input[id^="qty-"], #items-body input[id^="rowdisc-"] { font-size: 15px !important; padding: 9px 2px !important; }
+    #items-body td button:not(.del-btn) { padding: 8px 9px !important; font-size: 15px !important; }
+    #items-body input[type="checkbox"] { width: 20px !important; height: 20px !important; }
+    .col-unit, .col-qty { width: 52px !important; }
+  }
+  @media (max-width: 768px) {
+    .table-wrap table { min-width: 1140px !important; }
+    .col-code { width: 205px !important; }
+    .col-subcode { width: 290px !important; }
+  }
   .col-unit { width: 44px; }
   .col-qty { width: 44px; }
   .col-listeur { width: 80px; }
@@ -550,7 +567,7 @@
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:7px;">
         <div class="subtitle">견적서 작성 시스템</div>
         <div style="text-align:right;">
-          <div id="version-badge" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em;">Built by DUCK ✦ V6.27</div>
+          <div id="version-badge" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em;">Built by DUCK ✦ V6.28</div>
           <div id="pb-label" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em; margin-top:2px; cursor:help;">Price Book 2026-03-26</div>
         </div>
       </div>
@@ -12126,6 +12143,134 @@ function addRow() {
     moveDeductToBottom();
     toggleMarginCol();
 }
+
+var NAME_SG = {
+    box: null,
+    inp: null
+};
+
+function nameSgBox_() {
+    if (NAME_SG.box) return NAME_SG.box;
+    var b = document.createElement("div");
+    b.id = "name-suggest";
+    b.style.cssText = "display:none;position:fixed;z-index:9000;background:#fff;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);max-height:264px;overflow-y:auto;-webkit-overflow-scrolling:touch;";
+    b.addEventListener("mousedown", function(e) {
+        e.preventDefault();
+    });
+    b.addEventListener("click", function(e) {
+        var it = e.target.closest("[data-m]");
+        if (it) nameSgPick_(it.getAttribute("data-m"));
+    });
+    document.body.appendChild(b);
+    NAME_SG.box = b;
+    return b;
+}
+
+function nameSgModels_(q) {
+    var seen = {}, a = [], b = [];
+    var add = function(n, m) {
+        if (seen[n]) return;
+        var i = n.indexOf(q);
+        if (i < 0) return;
+        seen[n] = 1;
+        (i === 0 ? a : b).push({
+            n: n,
+            m: m
+        });
+    };
+    [ PRODUCT_DB, CONFIGURATOR_DB ].forEach(function(db) {
+        Object.keys(db).forEach(function(k) {
+            add(k, k);
+        });
+    });
+    Object.keys(SERIES_MODEL_MAP).forEach(function(s) {
+        if (!PRODUCT_DB[s] && !CONFIGURATOR_DB[s]) return;
+        Object.keys(SERIES_MODEL_MAP[s]).forEach(function(c) {
+            add(SERIES_MODEL_MAP[s][c], s);
+        });
+    });
+    var byLen = function(x, y) {
+        return x.n.length - y.n.length || (x.n < y.n ? -1 : x.n > y.n ? 1 : 0);
+    };
+    a.sort(byLen);
+    b.sort(byLen);
+    return a.concat(b).slice(0, 12);
+}
+
+function nameSgTarget_(el) {
+    if (!el || !el.id || !/^name-\d+$/.test(el.id) || el.readOnly) return false;
+    var code = getEl("code-" + el.id.slice(5));
+    return !!code && code.dataset.free !== "1" && currentBrand === "VAISALA";
+}
+
+function nameSgShow_(inp) {
+    var q = (inp.value || "").trim().toUpperCase();
+    if (!q) {
+        nameSgHide_();
+        return;
+    }
+    var list = nameSgModels_(q);
+    if (!list.length || list.length === 1 && list[0].m === q) {
+        nameSgHide_();
+        return;
+    }
+    var box = nameSgBox_();
+    NAME_SG.inp = inp;
+    box.innerHTML = list.map(function(x) {
+        var m = x.m, p = PRODUCT_DB[m], d = p && p.desc ? String(p.desc).split("||")[0] : "";
+        if (d.toUpperCase() === m) d = "";
+        if (x.n !== m) d = m + " 시리즈로 입력 (옵션 코드에서 " + x.n + " 선택)";
+        return '<div data-m="' + m.replace(/"/g, "&quot;") + '" style="padding:10px 14px;border-bottom:1px solid #f1f5f9;cursor:pointer;">' + '<div style="font-size:14px;font-weight:700;color:#1a3a5c;">' + escapeHtml(x.n) + (CONFIGURATOR_DB[m] ? ' <span style="font-size:10px;font-weight:600;color:#0f766e;background:#ccfbf1;border-radius:4px;padding:1px 5px;vertical-align:1px;">옵션 코드</span>' : "") + "</div>" + (d ? '<div style="font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(d) + "</div>" : "") + "</div>";
+    }).join("");
+    box.style.display = "block";
+    box.scrollTop = 0;
+    nameSgPlace_();
+}
+
+function nameSgPlace_() {
+    var box = NAME_SG.box, inp = NAME_SG.inp;
+    if (!box || !inp || box.style.display === "none") return;
+    var r = inp.getBoundingClientRect(), vv = window.visualViewport;
+    var vh = vv ? vv.height + vv.offsetTop : window.innerHeight, vw = window.innerWidth;
+    var w = Math.min(Math.max(r.width + 40, 300), vw - 16);
+    box.style.width = w + "px";
+    box.style.left = Math.max(8, Math.min(r.left, vw - w - 8)) + "px";
+    var h = box.offsetHeight, below = vh - r.bottom - 8;
+    box.style.top = (below < Math.min(h, 150) && r.top > below ? Math.max(8, r.top - 4 - h) : r.bottom + 4) + "px";
+}
+
+function nameSgHide_() {
+    if (NAME_SG.box) NAME_SG.box.style.display = "none";
+}
+
+function nameSgPick_(m) {
+    var inp = NAME_SG.inp;
+    nameSgHide_();
+    if (!inp) return;
+    inp.value = m;
+    inp.dispatchEvent(new Event("change", {
+        bubbles: true
+    }));
+    if (window.matchMedia && window.matchMedia("(pointer:coarse)").matches) inp.blur();
+}
+
+document.addEventListener("input", function(e) {
+    if (nameSgTarget_(e.target)) nameSgShow_(e.target);
+});
+
+document.addEventListener("focusin", function(e) {
+    if (nameSgTarget_(e.target)) nameSgShow_(e.target);
+});
+
+document.addEventListener("focusout", function(e) {
+    if (e.target && /^name-\d+$/.test(e.target.id || "")) setTimeout(function() {
+        if (document.activeElement !== NAME_SG.inp) nameSgHide_();
+    }, 180);
+});
+
+window.addEventListener("scroll", nameSgPlace_, true);
+
+window.addEventListener("resize", nameSgPlace_);
 
 var freeEditIdx = null;
 
