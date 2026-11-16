@@ -1,4 +1,4 @@
-<!-- 견적기 화면 V6.24 -->
+<!-- 견적기 화면 V6.25 -->
 <!DOCTYPE html>
 
 <html lang="ko">
@@ -548,7 +548,7 @@
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:7px;">
         <div class="subtitle">견적서 작성 시스템</div>
         <div style="text-align:right;">
-          <div id="version-badge" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em;">Built by DUCK ✦ V6.24</div>
+          <div id="version-badge" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em;">Built by DUCK ✦ V6.25</div>
           <div id="pb-label" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em; margin-top:2px; cursor:help;">Price Book 2026-03-26</div>
         </div>
       </div>
@@ -10094,7 +10094,35 @@ function getCustomers() {
     return _customersDB || {};
 }
 
+var CUST_CACHE_KEY = "hs_customers_cache";
+
+function saveCustomersCache_() {
+    try {
+        if (_customersDB) localStorage.setItem(CUST_CACHE_KEY, JSON.stringify({
+            t: Date.now(),
+            data: Object.values(_customersDB)
+        }));
+    } catch (e) {}
+}
+
+function useCustomerList_(list) {
+    _customersDB = {};
+    (list || []).forEach(function(c) {
+        if (c && c.customerKey) _customersDB[c.customerKey] = c;
+    });
+    var s = getEl("customer-search");
+    if (s && document.activeElement === s && s.value.trim()) searchCustomer();
+}
+
 function loadCustomersFromSheets() {
+    var hadCache = false;
+    try {
+        var c = JSON.parse(localStorage.getItem(CUST_CACHE_KEY) || "null");
+        if (c && c.data && c.data.length) {
+            useCustomerList_(c.data);
+            hadCache = true;
+        }
+    } catch (e) {}
     fetch(SHEETS_URL, {
         method: "POST",
         headers: {
@@ -10103,24 +10131,19 @@ function loadCustomersFromSheets() {
         body: JSON.stringify({
             action: "loadCustomers"
         })
-    }).then((function(r) {
+    }).then(function(r) {
         return r.json();
-    })).then((function(d) {
-        _customersDB = {};
+    }).then(function(d) {
         if (d.result === "success" && d.data) {
-            d.data.forEach((function(c) {
-                _customersDB[c.customerKey] = c;
-            }));
-        }
-        try {
-            console.log("[고객사로딩] result=", d.result, "| 건수=", d.data ? d.data.length : 0, "| 첫건=", d.data && d.data[0]);
-        } catch (e) {}
-    })).catch((function(err) {
-        _customersDB = {};
+            useCustomerList_(d.data);
+            saveCustomersCache_();
+        } else if (!hadCache) _customersDB = {};
+    }).catch(function(err) {
+        if (!hadCache) _customersDB = {};
         try {
             console.error("[고객사로딩 실패]", err);
         } catch (e) {}
-    }));
+    });
 }
 
 function autoSaveCustomerFromForm() {
@@ -10311,8 +10334,7 @@ function selectCustomer(key) {
         btn.style.opacity = "1";
         btn.style.cursor = "pointer";
     }
-    loadHistory(key);
-    loadLastTermsForCustomer(key);
+    prefetchCustHistory_(key);
 }
 
 function getCustomerContacts(c) {
@@ -11051,6 +11073,7 @@ function saveCustomer() {
     };
     db[key] = custData;
     _customersDB = db;
+    saveCustomersCache_();
     fetch(SHEETS_URL, {
         method: "POST",
         headers: {
@@ -11078,6 +11101,7 @@ function deleteCustomerConfirm(key) {
     const db = getCustomers();
     delete db[key];
     _customersDB = db;
+    saveCustomersCache_();
     const s = getEl("customer-search");
     if (s) {
         s.value = "";
@@ -11215,6 +11239,7 @@ window.addEventListener("load", (function() {
                     b.token = GAS_TOKEN;
                     opt.body = JSON.stringify(b);
                 }
+                if (b && b.action && !/^(load|get)/.test(b.action) && typeof CUST_HIST_MEM === "object") CUST_HIST_MEM = {};
             }
         } catch (e) {}
         return _origFetch.apply(this, arguments);
@@ -15162,6 +15187,41 @@ function closeHistorySidebar() {
     if (os) os.style.display = "none";
 }
 
+var CUST_HIST_MEM = {};
+
+function custHistoryReq_(ck) {
+    var m = CUST_HIST_MEM[ck];
+    if (m && Date.now() - m.t < 6e4) return m.p;
+    var p = fetch(SHEETS_URL, {
+        method: "POST",
+        headers: {
+            "Content-Type": "text/plain"
+        },
+        body: JSON.stringify({
+            action: "loadQuotes",
+            customerKey: ck
+        })
+    }).then(function(r) {
+        return r.json();
+    });
+    CUST_HIST_MEM[ck] = {
+        t: Date.now(),
+        p: p
+    };
+    p.then(function(d) {
+        if (!d || d.result !== "success") delete CUST_HIST_MEM[ck];
+    }, function() {
+        delete CUST_HIST_MEM[ck];
+    });
+    return p;
+}
+
+function prefetchCustHistory_(key) {
+    var c = getCustomers()[key];
+    var ck = c && c.name || key;
+    if (ck) custHistoryReq_(ck).catch(function() {});
+}
+
 function loadHistoryFromSheets() {
     if (!currentCustomerKey) {
         if (getEl("history-list")) getEl("history-list").innerHTML = '<div style="padding:30px 20px;text-align:center;color:#94a3b8;font-size:13px;line-height:1.6;">먼저 고객사를 선택해주세요.<br><span style="font-size:11px;color:#cbd5e1;">상단 검색창에서 고객사를 입력하면<br>해당 회사의 이력만 표시됩니다.</span></div>';
@@ -15179,26 +15239,15 @@ function loadHistoryFromSheets() {
     }
     if (getEl("history-list")) getEl("history-list").innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:12px;">불러오는 중...</div>';
     var ck = getCustomers()[currentCustomerKey]?.name || currentCustomerKey;
-    fetch(SHEETS_URL, {
-        method: "POST",
-        headers: {
-            "Content-Type": "text/plain"
-        },
-        body: JSON.stringify({
-            action: "loadQuotes",
-            customerKey: ck
-        })
-    }).then((function(r) {
-        return r.json();
-    })).then((function(d) {
+    custHistoryReq_(ck).then(function(d) {
         if (d.result === "success") {
             allHistoryData = (d.data || []).map(normQuoteRows_);
             buildYearFilter();
             renderHistory();
         }
-    })).catch((function() {
+    }).catch(function() {
         if (getEl("history-list")) getEl("history-list").innerHTML = '<div style="padding:20px;text-align:center;color:#e74c3c;font-size:12px;">불러오기 실패</div>';
-    }));
+    });
 }
 
 function buildYearFilter() {
