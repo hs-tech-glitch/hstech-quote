@@ -1,4 +1,4 @@
-<!-- 견적기 화면 V6.29 -->
+<!-- 견적기 화면 V6.30 -->
 <!DOCTYPE html>
 
 <html lang="ko">
@@ -567,7 +567,7 @@
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:7px;">
         <div class="subtitle">견적서 작성 시스템</div>
         <div style="text-align:right;">
-          <div id="version-badge" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em;">Built by DUCK ✦ V6.29</div>
+          <div id="version-badge" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em;">Built by DUCK ✦ V6.30</div>
           <div id="pb-label" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em; margin-top:2px; cursor:help;">Price Book 2026-03-26</div>
         </div>
       </div>
@@ -9274,8 +9274,9 @@ var BRANDS = {
         discLabel: "마진%",
         distLabel: "구매 $",
         delivery: {
-            def: "발주일로부터 8~10주이내",
-            presets: [ [ "재고 보유", "재고 보유" ], [ "발주일로부터 2~4주이내", "2~4주" ], [ "발주일로부터 4~6주이내", "4~6주" ], [ "발주일로부터 6~8주이내", "6~8주" ], [ "발주일로부터 8~10주이내", "8~10주" ] ]
+            def: "발주일로부터 7~8주이내",
+            oldDefs: [ "발주일로부터 8~10주이내" ],
+            presets: [ [ "재고 보유", "재고 보유" ], [ "발주일로부터 4~5주이내", "4~5주" ], [ "발주일로부터 5~6주이내", "5~6주" ], [ "발주일로부터 6~7주이내", "6~7주" ], [ "발주일로부터 7~8주이내", "7~8주" ] ]
         },
         defaultNote: "* 확인 사항\n사용 환경에 의한 마모, 정확도 오차 발생 등은 보증에서 제외됩니다.\n보증은 Setra Systems 판매 약관(General Terms and Conditions)에 따릅니다.",
         remark4: '<div class="remark-item">4. 거래 및 보증 조건 : General Terms and Conditions for the Sale of Goods and Services of Setra Systems, Inc.에 의한 거래 조건을 준수합니다.' + '<a href="https://www.setra.com/hubfs/Setra%20Gems%20Terms%20and%20Conditions%20-%20Customer.pdf" target="_blank" style="font-size:9px;color:#1a3a5c;display:block;margin-top:2px;padding-bottom:2px;">General Terms and Conditions (Setra) 참조</a></div>'
@@ -9321,7 +9322,7 @@ function setBrand(b, opt) {
     if (dt && c.delivery) {
         var dv = (dt.value || "").trim();
         var isDefD = !dv || Object.keys(BRANDS).some((function(k) {
-            return BRANDS[k].delivery && BRANDS[k].delivery.def === dv;
+            return BRANDS[k].delivery && (BRANDS[k].delivery.def === dv || (BRANDS[k].delivery.oldDefs || []).indexOf(dv) >= 0);
         }));
         if (isDefD) dt.value = c.delivery.def;
     }
