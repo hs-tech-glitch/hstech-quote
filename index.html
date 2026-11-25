@@ -1,4 +1,4 @@
-<!-- 견적기 화면 V6.30 -->
+<!-- 견적기 화면 V6.31 -->
 <!DOCTYPE html>
 
 <html lang="ko">
@@ -567,7 +567,7 @@
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-top:7px;">
         <div class="subtitle">견적서 작성 시스템</div>
         <div style="text-align:right;">
-          <div id="version-badge" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em;">Built by DUCK ✦ V6.30</div>
+          <div id="version-badge" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em;">Built by DUCK ✦ V6.31</div>
           <div id="pb-label" style="font-size:9px; color:#e2e8f0; letter-spacing:0.03em; margin-top:2px; cursor:help;">Price Book 2026-03-26</div>
         </div>
       </div>
@@ -10371,6 +10371,7 @@ function selectCustomer(key) {
         btn.style.cursor = "pointer";
     }
     prefetchCustHistory_(key);
+    applyLastPayment_(key);
 }
 
 function getCustomerContacts(c) {
@@ -15384,6 +15385,46 @@ function prefetchCustHistory_(key) {
     var c = getCustomers()[key];
     var ck = c && c.name || key;
     if (ck) custHistoryReq_(ck).catch(function() {});
+}
+
+function applyLastPayment_(key) {
+    var sel = getEl("remark-select");
+    if (!sel) return;
+    var c = getCustomers()[key];
+    var ck = c && c.name || key;
+    if (!ck) return;
+    var v0 = sel.value;
+    sel.dataset.payTouched = "";
+    if (!sel.dataset.payWatch) {
+        sel.dataset.payWatch = "1";
+        sel.addEventListener("change", function() {
+            sel.dataset.payTouched = "1";
+        });
+    }
+    custHistoryReq_(ck).then(function(d) {
+        if (!d || d.result !== "success" || currentCustomerKey !== key) return;
+        if (sel.dataset.payTouched === "1" || sel.value !== v0) return;
+        var list = (d.data || []).filter(function(h) {
+            return h && String(h.payment || "").trim();
+        });
+        if (!list.length) return;
+        list.sort(function(a, b) {
+            return String(b.docNum || "").localeCompare(String(a.docNum || ""));
+        });
+        var last = list[0], pay = String(last.payment).trim();
+        if (pay === sel.value) return;
+        var has = [].some.call(sel.options, function(o) {
+            return o.value === pay;
+        });
+        if (!has) {
+            var o = document.createElement("option");
+            o.value = pay;
+            o.textContent = pay;
+            sel.appendChild(o);
+        }
+        sel.value = pay;
+        if (typeof showToast === "function") showToast("결제조건: 지난 견적(" + (last.docNum || "") + ')대로 "' + pay + '"', 3500);
+    }).catch(function() {});
 }
 
 function loadHistoryFromSheets() {
